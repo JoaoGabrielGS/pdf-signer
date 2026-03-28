@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, markRaw } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { FileUp, AlertCircle } from 'lucide-vue-next'
+import { FileUp, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import SignatureModal, { type SignatureData } from '@/components/SignatureModal.vue'
 import DraggableSignature from '@/components/DraggableSignature.vue'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url'
@@ -34,6 +34,33 @@ const activeSignature = ref<SignatureData | null>(null)
 const signatureRef = ref<any>(null)
 const originalArrayBuffer = ref<ArrayBuffer | null>(null)
 
+const pdfInstance = ref<any>(null)
+const currentPage = ref(1)
+const totalPages = ref(0)
+
+const renderPage = async (pageNumber: number) => {
+  const doc = pdfInstance.value
+  if (!doc || !canvasRef.value) return
+
+  isLoaded.value = false
+  try {
+    const page = await doc.getPage(pageNumber)
+    const viewport = page.getViewport({ scale: 1.5 })
+    const canvas = canvasRef.value
+    const context = canvas.getContext('2d')
+
+    if (context) {
+      canvas.height = viewport.height
+      canvas.width = viewport.width
+      await page.render({ canvasContext: context, viewport }).promise
+      isLoaded.value = true
+    }
+  } catch (err) {
+    console.error('Erro ao renderizar página:', err)
+    error.value = 'Erro ao carregar a página selecionada.'
+  }
+}
+
 const loadPdf = async (event: Event) => {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -42,43 +69,33 @@ const loadPdf = async (event: Event) => {
   error.value = null
   isLoaded.value = false
   fileName.value = file.name
+  currentPage.value = 1
 
   try {
     const arrayBuffer = await file.arrayBuffer()
     originalArrayBuffer.value = arrayBuffer
-    const loadingTask = pdfjsLib.getDocument({
-      data: arrayBuffer.slice(0),
-    })
+
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer.slice(0) })
     const pdf = await loadingTask.promise
-    const page = await pdf.getPage(1)
+    pdfInstance.value = markRaw(pdf)
+    totalPages.value = pdf.numPages
 
-    const viewport = page.getViewport({ scale: 1.5 })
-    const canvas = canvasRef.value
-
-    if (canvas) {
-      const context = canvas.getContext('2d')
-      if (!context) throw new Error('Contexto 2D não encontrado')
-
-      canvas.height = viewport.height
-      canvas.width = viewport.width
-
-      const renderContext = {
-        canvasContext: context,
-        viewport: viewport,
-        canvas: canvas,
-      }
-
-      await page.render(renderContext).promise
-      isLoaded.value = true
-    }
+    await renderPage(currentPage.value)
   } catch (err) {
     console.error(err)
     error.value = 'Não foi possível renderizar o PDF. Tente outro arquivo.'
   }
 }
 
+const changePage = (offset: number) => {
+  const newPage = currentPage.value + offset
+  if (newPage >= 1 && newPage <= totalPages.value) {
+    currentPage.value = newPage
+    renderPage(newPage)
+  }
+}
+
 const handleConfirmSignature = (data: SignatureData) => {
-  console.log('Dados recebidos do modal:', data)
   activeSignature.value = data
 }
 
@@ -89,15 +106,15 @@ const gerarPdfAssinado = async () => {
     !signatureRef.value ||
     !originalArrayBuffer.value
   ) {
-    console.error('Faltam dados para gerar o PDF')
     return
   }
 
   try {
     const pdfDoc = await PDFDocument.load(originalArrayBuffer.value)
     const pages = pdfDoc.getPages()
-    const firstPage = pages[0]
-    const { width, height } = firstPage.getSize()
+
+    const targetPage = pages[currentPage.value - 1]
+    const { width, height } = targetPage.getSize()
 
     const xPdf = (parseFloat(signatureRef.value.x) / canvasRef.value.width) * width
 
@@ -106,7 +123,7 @@ const gerarPdfAssinado = async () => {
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
     const fontItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
 
-    firstPage.drawRectangle({
+    targetPage.drawRectangle({
       x: xPdf,
       y: yPdf,
       width: 180,
@@ -116,7 +133,7 @@ const gerarPdfAssinado = async () => {
       borderWidth: 1,
     })
 
-    firstPage.drawText('ASSINADO DIGITALMENTE', {
+    targetPage.drawText('ASSINADO DIGITALMENTE', {
       x: xPdf + 10,
       y: yPdf + 40,
       size: 7,
@@ -124,7 +141,7 @@ const gerarPdfAssinado = async () => {
       color: rgb(0.1, 0.4, 0.8),
     })
 
-    firstPage.drawText(activeSignature.value.nome, {
+    targetPage.drawText(activeSignature.value.nome, {
       x: xPdf + 10,
       y: yPdf + 25,
       size: 10,
@@ -132,7 +149,7 @@ const gerarPdfAssinado = async () => {
     })
 
     const info = `${activeSignature.value.data} | ${activeSignature.value.cidadeEstado}`
-    firstPage.drawText(info, {
+    targetPage.drawText(info, {
       x: xPdf + 10,
       y: yPdf + 10,
       size: 7,
@@ -141,8 +158,7 @@ const gerarPdfAssinado = async () => {
     })
 
     const pdfBytes = await pdfDoc.save()
-    const cleanBytes = new Uint8Array(pdfBytes)
-    const blob = new Blob([cleanBytes], { type: 'application/pdf' })
+    const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
 
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -150,6 +166,7 @@ const gerarPdfAssinado = async () => {
     link.download = `assinado_${fileName.value}`
     document.body.appendChild(link)
     link.click()
+
     setTimeout(() => {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
@@ -162,7 +179,7 @@ const gerarPdfAssinado = async () => {
 
 <template>
   <div class="flex min-h-[600px] flex-col items-center justify-center space-y-8 p-6">
-    <div v-if="!isLoaded" class="w-full max-w-xl">
+    <div v-if="!isLoaded && !pdfInstance" class="w-full max-w-xl">
       <div
         class="bg-card hover:bg-accent/50 relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 transition-all"
       >
@@ -173,31 +190,39 @@ const gerarPdfAssinado = async () => {
           class="absolute inset-0 z-20 h-full w-full cursor-pointer opacity-0"
         />
         <div class="flex flex-col items-center gap-4 text-center">
-          <div class="bg-primary/10 text-primary rounded-full p-4">
-            <FileUp :size="32" />
-          </div>
+          <div class="bg-primary/10 text-primary rounded-full p-4"><FileUp :size="32" /></div>
           <div>
             <h3 class="text-lg font-semibold">Importar Documento</h3>
-            <p class="text-muted-foreground text-sm leading-relaxed">
-              Arraste o PDF aqui ou clique para selecionar.<br />
-              O documento será processado localmente no seu navegador.
-            </p>
+            <p class="text-muted-foreground text-sm">O documento será processado localmente.</p>
           </div>
-          <Button variant="secondary" class="pointer-events-none mt-2">Selecionar Arquivo</Button>
         </div>
       </div>
     </div>
 
+    <div
+      v-if="totalPages > 1 && isLoaded"
+      class="flex items-center gap-4 rounded-full border bg-slate-50 px-4 py-2 shadow-sm"
+    >
+      <Button size="icon" :disabled="currentPage === 1" @click="changePage(-1)">
+        <ChevronLeft class="h-4 w-4" />
+      </Button>
+      <span class="min-w-[100px] text-center text-sm font-bold">
+        Página {{ currentPage }} de {{ totalPages }}
+      </span>
+      <Button size="icon" :disabled="currentPage === totalPages" @click="changePage(1)">
+        <ChevronRight class="h-4 w-4" />
+      </Button>
+    </div>
+
     <Alert v-if="error" variant="destructive" class="max-w-xl">
       <AlertCircle class="h-4 w-4" />
-      <AlertTitle>Erro no Processamento</AlertTitle>
+      <AlertTitle>Erro</AlertTitle>
       <AlertDescription>{{ error }}</AlertDescription>
     </Alert>
 
     <div v-show="isLoaded" class="flex flex-col items-center gap-6">
       <div class="relative overflow-hidden rounded-md border bg-white shadow-2xl">
         <canvas ref="canvasRef"></canvas>
-
         <div class="absolute inset-0 z-10">
           <DraggableSignature v-if="activeSignature" ref="signatureRef" v-bind="activeSignature" />
         </div>
@@ -210,19 +235,17 @@ const gerarPdfAssinado = async () => {
           :data="data"
           :cidadeEstado="cidadeEstado"
         />
-
         <Button
           v-if="activeSignature"
           variant="default"
           class="bg-green-600 hover:bg-green-700"
           @click="gerarPdfAssinado"
         >
-          Finalizar e Gerar JSON
+          Finalizar e Baixar PDF
         </Button>
-
-        <Button v-if="activeSignature" variant="outline" @click="activeSignature = null">
-          Remover
-        </Button>
+        <Button v-if="activeSignature" variant="outline" @click="activeSignature = null"
+          >Remover</Button
+        >
       </div>
     </div>
   </div>
