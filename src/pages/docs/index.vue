@@ -24,16 +24,6 @@ import PdfSigner from '@/components/PdfSigner.vue'
       <section class="rounded-2xl border bg-white p-2 shadow-sm md:p-8">
         <PdfSigner />
       </section>
-
-      <footer
-        class="mt-8 flex justify-center gap-6 text-xs font-medium tracking-widest text-slate-400 uppercase"
-      >
-        <span>Vue 3.x</span>
-        <span>•</span>
-        <span>TypeScript</span>
-        <span>•</span>
-        <span>PDF.js</span>
-      </footer>
     </div>
   </main>
 </template>
