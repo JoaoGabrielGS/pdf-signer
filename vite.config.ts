@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [
     VueRouter({
       routesFolder: 'src/pages',
-      extensions: ['vue', 'ts'],
+      extensions: ['.vue', '.ts'],
       dts: 'src/typed-router.d.ts'
     }),
     vue(),
