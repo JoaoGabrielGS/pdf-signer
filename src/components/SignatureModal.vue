@@ -98,7 +98,7 @@ const handleConfirm = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent class="w-auto p-0" align="start">
-                <Calendar v-model="dateValue" initial-focus />
+                <Calendar v-model="dateValue" locale="pt-BR" initial-focus />
               </PopoverContent>
             </Popover>
           </div>
@@ -111,27 +111,54 @@ const handleConfirm = () => {
       </div>
 
       <div class="rounded-lg border border-dashed bg-slate-50/50 p-4">
-        <p class="text-muted-foreground mb-2 text-[10px] font-semibold uppercase">
+        <p class="text-muted-foreground mb-3 text-[10px] font-semibold tracking-wider uppercase">
           Pré-visualização do Selo:
         </p>
-        <div class="border-primary rounded-r-md border-l-4 bg-white p-3 shadow-sm">
-          <p
-            class="text-primary mb-1 border-b pb-1 text-[10px] font-bold tracking-tighter uppercase"
+
+        <div
+          class="flex items-center gap-3 rounded-lg border-2 border-double border-slate-200 bg-white p-3 shadow-sm"
+        >
+          <div
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 shadow-inner"
           >
-            Assinado Digitalmente
-          </p>
-          <p class="text-[11px] leading-tight font-bold text-slate-900">
-            {{ form.nome || 'Nome Completo' }}
-          </p>
-          <div class="mt-1 flex justify-between text-[9px] text-slate-500 italic">
-            <span>{{ form.data }}</span>
-            <span>{{ form.cidadeEstado }}</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+          </div>
+
+          <div class="flex-1 space-y-0.5">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-1">
+              <span class="text-[9px] font-bold tracking-widest text-blue-600 uppercase"
+                >Autenticado</span
+              >
+              <div class="h-1.5 w-1.5 rounded-full bg-green-500 shadow-sm"></div>
+            </div>
+
+            <p class="truncate text-[12px] leading-tight font-bold text-slate-900">
+              {{ form.nome || 'Nome Completo' }}
+            </p>
+
+            <div class="flex flex-col text-[9px] leading-tight font-medium text-slate-500">
+              <span>Data: {{ form.data }}</span>
+              <span class="truncate">{{ form.cidadeEstado }}</span>
+            </div>
           </div>
         </div>
       </div>
 
       <DialogFooter>
-        <Button type="button" @click="handleConfirm">Gerar Assinatura</Button>
+        <Button type="button" class="w-full" @click="handleConfirm">Gerar Assinatura</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

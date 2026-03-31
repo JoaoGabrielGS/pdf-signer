@@ -112,54 +112,107 @@ const gerarPdfAssinado = async () => {
   try {
     const pdfDoc = await PDFDocument.load(originalArrayBuffer.value)
     const pages = pdfDoc.getPages()
-
     const targetPage = pages[currentPage.value - 1]
     const { width, height } = targetPage.getSize()
 
-    const xPdf = (parseFloat(signatureRef.value.x) / canvasRef.value.width) * width
+    const xScale = width / canvasRef.value.width
+    const yScale = height / canvasRef.value.height
 
-    const yPdf = height - (parseFloat(signatureRef.value.y) / canvasRef.value.height) * height - 60
+    const xPdf = parseFloat(signatureRef.value.x) * xScale
+
+    const seloHeightPdf = 65
+    const yPdf = height - parseFloat(signatureRef.value.y) * yScale - seloHeightPdf
+
+    const colorWhite = rgb(1, 1, 1)
+    const colorPrimary = rgb(0.15, 0.4, 0.85)
+    const colorGreen = rgb(0.13, 0.77, 0.36)
+    const colorBorder = rgb(0.85, 0.88, 0.92)
+    const colorTextMain = rgb(0.1, 0.1, 0.1)
+    const colorTextSub = rgb(0.4, 0.4, 0.5)
 
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+    const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica)
     const fontItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
+
+    const seloWidth = 200
+    const padding = 12
+
+    targetPage.drawRectangle({
+      x: xPdf + 1,
+      y: yPdf - 1,
+      width: seloWidth,
+      height: seloHeightPdf,
+      color: rgb(0.95, 0.95, 0.95),
+    })
 
     targetPage.drawRectangle({
       x: xPdf,
       y: yPdf,
-      width: 180,
-      height: 55,
-      color: rgb(1, 1, 1),
-      borderColor: rgb(0.1, 0.4, 0.8),
+      width: seloWidth,
+      height: seloHeightPdf,
+      color: colorWhite,
+      borderColor: colorBorder,
       borderWidth: 1,
     })
 
-    targetPage.drawText('ASSINADO DIGITALMENTE', {
-      x: xPdf + 10,
-      y: yPdf + 40,
-      size: 7,
-      font: fontBold,
-      color: rgb(0.1, 0.4, 0.8),
+    targetPage.drawRectangle({
+      x: xPdf + 3,
+      y: yPdf + 3,
+      width: seloWidth - 6,
+      height: seloHeightPdf - 6,
+      borderColor: colorBorder,
+      borderWidth: 0.5,
     })
 
-    targetPage.drawText(activeSignature.value.nome, {
-      x: xPdf + 10,
+    targetPage.drawText('AUTENTICADO', {
+      x: xPdf + padding,
+      y: yPdf + seloHeightPdf - padding - 5,
+      size: 7,
+      font: fontBold,
+      color: colorPrimary,
+    })
+
+    targetPage.drawCircle({
+      x: xPdf + seloWidth - padding - 4,
+      y: yPdf + seloHeightPdf - padding - 2,
+      size: 4,
+      color: colorGreen,
+    })
+
+    targetPage.drawLine({
+      start: { x: xPdf + padding, y: yPdf + seloHeightPdf - 22 },
+      end: { x: xPdf + seloWidth - padding, y: yPdf + seloHeightPdf - 22 },
+      thickness: 0.5,
+      color: colorBorder,
+    })
+
+    targetPage.drawText(activeSignature.value.nome.toUpperCase(), {
+      x: xPdf + padding,
       y: yPdf + 25,
       size: 10,
       font: fontBold,
+      color: colorTextMain,
     })
 
-    const info = `${activeSignature.value.data} | ${activeSignature.value.cidadeEstado}`
-    targetPage.drawText(info, {
-      x: xPdf + 10,
-      y: yPdf + 10,
+    const infoText = `Data: ${activeSignature.value.data}`
+    targetPage.drawText(infoText, {
+      x: xPdf + padding,
+      y: yPdf + padding,
+      size: 7,
+      font: fontRegular,
+      color: colorTextSub,
+    })
+
+    targetPage.drawText(activeSignature.value.cidadeEstado, {
+      x: xPdf + padding + 75,
+      y: yPdf + padding,
       size: 7,
       font: fontItalic,
-      color: rgb(0.4, 0.4, 0.4),
+      color: colorTextSub,
     })
 
     const pdfBytes = await pdfDoc.save()
     const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
-
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url

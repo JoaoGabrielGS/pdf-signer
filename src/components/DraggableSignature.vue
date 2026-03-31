@@ -14,10 +14,11 @@ const container = computed(() => el.value?.parentElement)
 const { width: parentWidth, height: parentHeight } = useElementBounding(container)
 const { width: elWidth, height: elHeight } = useElementBounding(el)
 
-const { x, y, style } = useDraggable(el, {
+const { x, y, style, isDragging } = useDraggable(el, {
   initialValue: { x: 50, y: 50 },
   preventDefault: true,
   exact: true,
+  containerElement: container,
 
   onMove(position) {
     if (!parentWidth.value || !parentHeight.value) return
@@ -33,6 +34,8 @@ const { x, y, style } = useDraggable(el, {
 defineExpose({
   x,
   y,
+  elWidth,
+  elHeight,
 })
 </script>
 
@@ -40,43 +43,44 @@ defineExpose({
   <div
     ref="el"
     :style="style"
-    class="border-primary absolute z-50 min-w-[200px] cursor-grab rounded-r-md border-l-4 bg-white/95 p-3 shadow-2xl backdrop-blur-sm select-none active:cursor-grabbing"
+    class="absolute z-50 flex min-w-[220px] items-center gap-3 rounded-lg border-2 border-double border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur-sm transition-transform duration-200 select-none"
+    :class="isDragging ? 'scale-105 cursor-grabbing opacity-90' : 'cursor-grab'"
   >
-    <div class="pointer-events-none space-y-1.5">
-      <div class="mb-1 flex items-center justify-between border-b border-slate-100 pb-1">
-        <span class="text-primary text-[8px] font-bold tracking-wider uppercase"
-          >Assinado Digitalmente</span
+    <div
+      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 shadow-inner"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    </div>
+
+    <div class="pointer-events-none flex-1 space-y-0.5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-1">
+        <span class="text-[9px] font-bold tracking-widest text-blue-600 uppercase"
+          >Autenticado</span
         >
-        <div class="h-2 w-2 animate-pulse rounded-full bg-green-500 shadow-inner"></div>
+        <div class="h-1.5 w-1.5 rounded-full bg-green-500 shadow-sm"></div>
       </div>
 
       <p class="truncate text-[12px] leading-tight font-bold text-slate-900">
-        {{ props.nome || 'Nome Completo' }}
+        {{ props.nome || 'Assinante' }}
       </p>
 
       <div class="flex flex-col text-[9px] leading-tight font-medium text-slate-500">
         <span>Data: {{ props.data }}</span>
-        <span>Local: {{ props.cidadeEstado }}</span>
+        <span class="truncate">{{ props.cidadeEstado }}</span>
       </div>
-    </div>
-
-    <div class="bg-primary absolute -right-1.5 -bottom-1.5 rounded-full p-1 text-white shadow-md">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="12"
-        height="12"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <polyline points="5 9 2 12 5 15" />
-        <polyline points="9 5 12 2 15 5" />
-        <polyline points="15 19 12 22 9 19" />
-        <polyline points="19 9 22 12 19 15" />
-      </svg>
     </div>
   </div>
 </template>
